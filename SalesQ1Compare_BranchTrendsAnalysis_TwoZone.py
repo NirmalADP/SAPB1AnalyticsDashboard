@@ -11,7 +11,8 @@ import os
 import numpy as np
 from sqlalchemy import create_engine
 from functools import lru_cache
-
+from dotenv import load_dotenv
+load_dotenv()  # This loads variables from .env file
 # ----------------------------
 # Page Configuration
 # ----------------------------
