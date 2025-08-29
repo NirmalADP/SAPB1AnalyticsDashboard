@@ -13,6 +13,19 @@ from sqlalchemy import create_engine
 from functools import lru_cache
 from dotenv import load_dotenv
 load_dotenv()  # This loads variables from .env file
+
+# For Streamlit secrets.toml
+try:
+    DB_HOST = st.secrets["connections"]["DB_HOST"]
+    DB_PORT = st.secrets["connections"]["DB_PORT"]
+    DB_USER = st.secrets["connections"]["DB_USER"]
+    DB_PASSWORD = st.secrets["connections"]["DB_PASSWORD"]
+except (KeyError, FileNotFoundError):
+    # Fallback to environment variables or defaults
+    DB_HOST = os.getenv('DB_HOST', '192.168.238.7')
+    DB_PORT = int(os.getenv('DB_PORT', '30015'))
+    DB_USER = os.getenv('DB_USER', 'SYSTEM')
+    DB_PASSWORD = os.getenv('DB_PASSWORD', 'Welcome@1')
 # ----------------------------
 # Page Configuration
 # ----------------------------
@@ -234,6 +247,7 @@ class DatabaseConnection:
         self.username = os.getenv('DB_USER', 'SYSTEM')
         self.password = os.getenv('DB_PASSWORD', 'Welcome@1')
         self.connection = None
+        self.timeout = 30
 
     def get_connection(self):
         """Get a fresh connection for each operation"""
@@ -245,9 +259,11 @@ class DatabaseConnection:
                 user=self.username,
                 password=self.password,
                 autocommit=True,
-                timeout=30,
+                timeout=self.timeout,
                 encrypt=False,
-                sslValidateCertificate=False
+                sslValidateCertificate=False,
+                reconnect=True,
+                communicationTimeout=30000
             )
             return connection
         except Exception as e:
@@ -257,6 +273,16 @@ class DatabaseConnection:
     def test_connection(self):
         """Test database connection"""
         try:
+            import socket
+            # Test basic network connectivity first
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(10)
+            result = sock.connect_ex((self.host, self.port))
+            sock.close()
+            
+            if result != 0:
+                return False, f"Network connection failed to {self.host}:{self.port}"
+
             conn = self.get_connection()
             if conn:
                 cursor = conn.cursor()
